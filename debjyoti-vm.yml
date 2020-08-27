@@ -1,0 +1,77 @@
+---
+- name: Create Azure VM
+  hosts: localhost
+  connection: local
+  vars:
+    vm_offer: "UbuntuServer"
+    vm_pub: "Canonical"
+    vm_sku: "16.04-LTS"
+    vm_size: "Standard_DS1_v2"
+    az: "eastus"
+    vm_net: "debVNet"
+    vm_subnet: "debSubnet"
+    vm_publicIP: "debPublicIP" 
+    vm_NSG: "debNSG"
+    vm_NIC: "debNIC"
+    vm_Name: "debjyotiVM"
+    resource_group: "debjyoti-332488-resgrp"
+    os_user: "debjyoti_332488"
+  tasks:
+  - name: Create a resource group
+    azure_rm_resourcegroup:
+      name: "{{ resource_group }}"
+      location: "{{ az }}"
+      tags:
+        testing: testing
+        delete: never
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: "{{ resource_group }}"
+      name: "{{ vm_net }}"
+      address_prefixes: "10.0.0.0/16"
+  - name: Add subnet
+    azure_rm_subnet:
+      resource_group: "{{ resource_group }}"
+      name: "{{ vm_subnet }}"
+      address_prefix: "10.0.1.0/24"
+      virtual_network: "{{ vm_net }}"
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: "{{ resource_group }}"
+      allocation_method: Static
+      name: "{{ vm_publicIP }}"
+    register:  reg_publicIP
+  - debug: var=reg_publicIP
+  - name: Create Network Security Group that allows SSH
+    azure_rm_securitygroup:
+      resource_group: "{{ resource_group }}"
+      name: "{{ vm_NSG }}"
+      rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Create virtual network interface card
+    azure_rm_networkinterface:
+      resource_group: "{{ resource_group }}"
+      name: "{{ vm_NIC }}"
+      virtual_network: "{{ vm_net }}"
+      subnet: "{{ vm_subnet }}"
+      public_ip_name: "{{ vm_publicIP }}"
+      security_group: "{{ vm_NSG }}"
+  - name: Create VM
+    azure_rm_virtualmachine:
+      resource_group: "{{ resource_group }}"
+      name: "{{ vm_Name }}"
+      vm_size: "{{ vm_size }}"
+      admin_username: "{{ os_user }}"
+      admin_password: Password@123
+      network_interfaces: "{{ vm_NIC }}"
+      image:
+        offer: "{{ vm_offer }}"
+        publisher: "{{ vm_pub }}"
+        sku: "{{ vm_sku }}"
+        version: latest
+...
